@@ -11,6 +11,7 @@ struct rule {
         std::stringstream ss(s);
         ss >> dst >> src >> rng;
     };
+    range span() const {return std::make_pair(src, src + rng - 1);};
 };
 
 

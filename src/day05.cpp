@@ -5,18 +5,6 @@ long map(const rule& r, long x) {
     else return x;
 }
 
-mapping_t rule_to_mapping(const rule& r) {
-    return [r](long in) {
-        if (in >= r.src && in <= (r.src + r.rng - 1)) return in + r.dst - r.src;
-        else return in;
-    };
-}
-
-mapping_t str_to_mapping(const std::string& s) {
-    rule r(s);
-    return rule_to_mapping(r);
-}
-
 day05::day05() {
     auto input = readFile("input/day05.in");
     std::vector<rule> v;
@@ -32,9 +20,8 @@ day05::day05() {
     std::stringstream ss(input[0]);
     ss.ignore(7, ':');
     long seed;
-    while(ss >> seed) {
-        seeds.push_back(seed);
-    }
+    while(ss >> seed) seeds.push_back(seed);
+    for (size_t i = 0; i < seeds.size(); i+=2) ranges.emplace_back(seeds[i], seeds[i+1]);
 }
 
 long day05::transform(long seed) {
@@ -56,66 +43,54 @@ long day05::part_one() {
         }));
 }
 
-bool is_convertible(const range& range, const rule& r) {
-    return ((range.first >= r.src && range.first < r.src + r.rng - 1) ||
-            (range.second > r.src && range.second < r.src + r.rng));
-}
-
 range converted_range(const range& rng, const rule& r) {
-    return range((std::max(rng.first, r.src) + r.dst - r.src),
-                 (std::min(rng.second, r.src + r.rng - 1) + r.dst - r.src));
+    long overlap_size = std::min(rng.first + rng.second, r.src + r.rng) - std::max(rng.first, r.src);  
+    return range(std::max(rng.first, r.src) + r.dst - r.src, overlap_size);
 }
 
 std::vector<range> unconverted_ranges(const range& rng, const rule& r) {
     std::vector<range> ret;
-    if (rng.first < r.src) 
-        ret.emplace_back(rng.first, r.src - 1);
-    if (rng.second >= r.src + r.rng) 
-        ret.emplace_back(r.src + r.rng, rng.second);
+    if (rng.first < r.src)
+        ret.emplace_back(rng.first, r.src - rng.first);
+    if (rng.first + rng.second > r.src + r.rng)
+        ret.emplace_back(r.src + r.rng, rng.first + rng.second - (r.src + r.rng));
     return ret;
 }
 
 long day05::transform_range(const range& rng) {
+    auto is_convertible = [](const range& rng, const rule& r){return rngutils::overlap(range(rng.first, rng.first + rng.second - 1), r.span());};
     std::vector<range> transformed;
-    std::deque<range> untransformed {rng};
+    std::vector<range> untransformed {rng};
     for (const auto& ruleset : rules) {
         for (const auto& r : ruleset) {
-            for (const auto& rng : untransformed) {
-                auto new_untransformed = unconverted_ranges(rng, r);
-                std::copy(new_untransformed.begin(), new_untransformed.end(), std::back_inserter(untransformed));
-                transformed.emplace_back(converted_range(rng, r));
-                untransformed.erase(rng);
+            auto tmp = untransformed;
+            untransformed.clear();
+            for (const auto& rng : tmp) {
+                if (is_convertible(rng, r)) {
+                    transformed.emplace_back(converted_range(rng, r));
+                    if (transformed.back().second != rng.second) {
+                        auto new_untransformed = unconverted_ranges(rng, r);
+                        std::copy(new_untransformed.begin(), new_untransformed.end(), std::back_inserter(untransformed));
+                    }
+                } else untransformed.push_back(rng);
             }
         }
+        std::copy(transformed.begin(), transformed.end(), std::back_inserter(untransformed));
+        transformed.clear();
     }
-    return std::ranges::min(transformed | std::ranges::min);
+    std::ranges::sort(untransformed, [](const auto& r1, const auto& r2) {return r1.first < r2.first;});
+    return untransformed[0].first;
 }
 
 long day05::part_two() {
-    return 0;
     return std::ranges::min(ranges | std::views::transform(
         [=, this](const auto& rng) {
-            std::vector<range> unconverted {rng};
-            std::vector<range> converted;
-            for (const auto& ruleset : rules) {
-                for (const auto& rule : ruleset) {
-
-                }
-            }
+            return transform_range(rng);
         }));
-    
-
-    /*return std::ranges::min(...,
-        [](long seed, long range) {
-            std::vector<long> v(seed, seed+range); 
-            
-        });*/
+    return 0;
 }
 
 int main() {
     day05 day05;
     profile_day(day05);
-    //for (const auto& s : day05.seeds) std::cout << s << ",";
-    
-    return 0;
 }

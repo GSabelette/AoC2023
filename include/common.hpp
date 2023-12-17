@@ -220,3 +220,15 @@ namespace hashes {
         }
     };
 };
+
+namespace rngutils {
+    template <typename T, typename U>
+    bool overlap(T t, U u) {
+        return !(t.second <= u.first || u.second <= t.first);
+    }
+
+    template <typename T, typename U>
+    T compute_overlap(T t, U u) {
+        return T(std::max(t.first, u.first), std::min(t.second, u.second));       
+    }
+};
